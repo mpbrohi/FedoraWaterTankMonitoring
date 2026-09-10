@@ -21,6 +21,38 @@ jobs:
           mkdir project
           unzip -q WaterTankMonitoring_build_ready.zip -d project
 
+      - name: Repair Kotlin source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("project/waterproj/app/src/main/java/com/watertank/monitoring/MainActivity.kt")
+          s = p.read_text()
+
+          s = s.replace(
+              'import androidx.compose.foundation.layout.*\n',
+              'import androidx.compose.foundation.layout.*\n'
+              'import androidx.compose.foundation.lazy.LazyColumn\n'
+              'import androidx.compose.foundation.lazy.items\n'
+              'import androidx.compose.foundation.shape.RoundedCornerShape\n'
+          )
+
+          s = s.replace(
+              'import com.watertank.monitoring.ui.AddTankScreen\n',
+              'import com.watertank.monitoring.data.Tank\n'
+              'import com.watertank.monitoring.data.TankStatus\n'
+              'import com.watertank.monitoring.ui.AddTankScreen\n'
+          )
+
+          s = s.replace(
+              'Icons.Filled.BatteryCharging50',
+              'Icons.Filled.BatteryFull'
+          )
+
+          p.write_text(s)
+          print("MainActivity.kt repaired successfully")
+          PY
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
