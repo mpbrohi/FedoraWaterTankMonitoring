@@ -26,11 +26,14 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          base = Path("project/waterproj/app/src/main/java/com/watertank/monitoring")
+          base = Path(
+              "project/waterproj/app/src/main/java/"
+              "com/watertank/monitoring"
+          )
 
-          # ==========================================
+          # ==================================================
           # MainActivity.kt
-          # ==========================================
+          # ==================================================
           p = base / "MainActivity.kt"
           s = p.read_text()
 
@@ -58,39 +61,55 @@ jobs:
 
           p.write_text(s)
 
-          # ==========================================
+          # ==================================================
           # ApiClient.kt
-          # ==========================================
+          # ==================================================
           p = base / "network" / "ApiClient.kt"
           s = p.read_text()
 
-          # Remove old MediaType.parse usage
+          # Old OkHttp syntax:
+          # okhttp3.RequestBody.create(
+          #     okhttp3.MediaType.parse("application/json"),
+          #     jsonBody
+          # )
+          #
+          # New syntax:
+          # jsonBody.toRequestBody("application/json".toMediaType())
+
           s = s.replace(
-              'MediaType.parse("application/json")',
+              """okhttp3.RequestBody.create(
+                      okhttp3.MediaType.parse("application/json"),
+                      jsonBody
+                  )""",
+              """jsonBody.toRequestBody("application/json".toMediaType())"""
+          )
+
+          # Also handle any remaining old MediaType.parse
+          s = s.replace(
+              'okhttp3.MediaType.parse("application/json")',
               '"application/json".toMediaType()'
           )
 
-          # Make sure toMediaType import exists
+          # Add required OkHttp imports
           if "import okhttp3.MediaType.Companion.toMediaType" not in s:
-              lines = s.splitlines()
-              pos = 0
-
-              for i, line in enumerate(lines):
-                  if line.startswith("import "):
-                      pos = i + 1
-
-              lines.insert(
-                  pos,
-                  "import okhttp3.MediaType.Companion.toMediaType"
+              s = s.replace(
+                  "import okhttp3.OkHttpClient",
+                  """import okhttp3.MediaType.Companion.toMediaType
+          import okhttp3.OkHttpClient"""
               )
 
-              s = "\n".join(lines) + "\n"
+          if "import okhttp3.RequestBody.Companion.toRequestBody" not in s:
+              s = s.replace(
+                  "import okhttp3.Request",
+                  """import okhttp3.Request
+          import okhttp3.RequestBody.Companion.toRequestBody"""
+              )
 
           p.write_text(s)
 
-          # ==========================================
+          # ==================================================
           # Screens.kt
-          # ==========================================
+          # ==================================================
           p = base / "ui" / "Screens.kt"
           s = p.read_text()
 
@@ -107,8 +126,8 @@ jobs:
           ]
 
           lines = s.splitlines()
-
           existing = set(lines)
+
           missing = [x for x in needed if x not in existing]
 
           if missing:
@@ -125,12 +144,49 @@ jobs:
 
           p.write_text(s)
 
-          print("======================================")
-          print("Kotlin source repair completed")
-          print("MainActivity.kt      : repaired")
-          print("ApiClient.kt         : repaired")
-          print("Screens.kt           : repaired")
-          print("======================================")
+          # ==================================================
+          # Utils.kt
+          # ==================================================
+          p = base / "utils" / "Utils.kt"
+          s = p.read_text()
+
+          needed = [
+              "import androidx.compose.material.icons.Icons",
+              "import androidx.compose.material.icons.filled.SignalCellularAlt",
+              "import androidx.compose.material.icons.filled.SignalCellular2Bar",
+              "import androidx.compose.material.icons.filled.SignalCellular1Bar",
+              "import androidx.compose.material.icons.filled.SignalCellularOff",
+              "import androidx.compose.ui.text.AnnotatedString",
+              "import androidx.compose.ui.text.input.OffsetMapping",
+              "import androidx.compose.ui.text.input.TransformedText"
+          ]
+
+          lines = s.splitlines()
+          existing = set(lines)
+
+          missing = [x for x in needed if x not in existing]
+
+          if missing:
+              pos = 0
+
+              for i, line in enumerate(lines):
+                  if line.startswith("import "):
+                      pos = i + 1
+
+              for imp in reversed(missing):
+                  lines.insert(pos, imp)
+
+              s = "\n".join(lines) + "\n"
+
+          p.write_text(s)
+
+          print("========================================")
+          print("ALL KOTLIN REPAIRS COMPLETED")
+          print("MainActivity.kt : OK")
+          print("ApiClient.kt    : OK")
+          print("Screens.kt      : OK")
+          print("Utils.kt        : OK")
+          print("========================================")
           PY
 
       - name: Set up JDK 17
@@ -151,8 +207,10 @@ jobs:
 
       - name: Find APK
         run: |
-          echo "APK files found:"
+          echo "========================================"
+          echo "APK FILES FOUND:"
           find project -type f -name "*.apk" -print
+          echo "========================================"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
