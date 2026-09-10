@@ -26,31 +26,29 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          # -----------------------------
-          # MainActivity.kt
-          # -----------------------------
-          p = Path(
-              "project/waterproj/app/src/main/java/"
-              "com/watertank/monitoring/MainActivity.kt"
-          )
+          base = Path("project/waterproj/app/src/main/java/com/watertank/monitoring")
 
+          # ==========================================
+          # MainActivity.kt
+          # ==========================================
+          p = base / "MainActivity.kt"
           s = p.read_text()
 
           if "import androidx.compose.foundation.lazy.LazyColumn" not in s:
               s = s.replace(
-                  "import androidx.compose.foundation.layout.*\n",
-                  "import androidx.compose.foundation.layout.*\n"
-                  "import androidx.compose.foundation.lazy.LazyColumn\n"
-                  "import androidx.compose.foundation.lazy.items\n"
-                  "import androidx.compose.foundation.shape.RoundedCornerShape\n"
+                  "import androidx.compose.foundation.layout.*",
+                  """import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.foundation.shape.RoundedCornerShape"""
               )
 
           if "import com.watertank.monitoring.data.Tank" not in s:
               s = s.replace(
-                  "import com.watertank.monitoring.ui.AddTankScreen\n",
-                  "import com.watertank.monitoring.data.Tank\n"
-                  "import com.watertank.monitoring.data.TankStatus\n"
-                  "import com.watertank.monitoring.ui.AddTankScreen\n"
+                  "import com.watertank.monitoring.ui.AddTankScreen",
+                  """import com.watertank.monitoring.data.Tank
+          import com.watertank.monitoring.data.TankStatus
+          import com.watertank.monitoring.ui.AddTankScreen"""
               )
 
           s = s.replace(
@@ -60,73 +58,79 @@ jobs:
 
           p.write_text(s)
 
-          # -----------------------------
+          # ==========================================
           # ApiClient.kt
-          # -----------------------------
-          p = Path(
-              "project/waterproj/app/src/main/java/"
-              "com/watertank/monitoring/network/ApiClient.kt"
-          )
-
+          # ==========================================
+          p = base / "network" / "ApiClient.kt"
           s = p.read_text()
 
+          # Remove old MediaType.parse usage
           s = s.replace(
               'MediaType.parse("application/json")',
               '"application/json".toMediaType()'
           )
 
+          # Make sure toMediaType import exists
           if "import okhttp3.MediaType.Companion.toMediaType" not in s:
-              if "import okhttp3." in s:
-                  lines = s.splitlines()
-                  insert_at = 0
-
-                  for i, line in enumerate(lines):
-                      if line.startswith("import "):
-                          insert_at = i + 1
-
-                  lines.insert(
-                      insert_at,
-                      "import okhttp3.MediaType.Companion.toMediaType"
-                  )
-                  s = "\n".join(lines) + "\n"
-
-          p.write_text(s)
-
-          # -----------------------------
-          # Screens.kt
-          # -----------------------------
-          p = Path(
-              "project/waterproj/app/src/main/java/"
-              "com/watertank/monitoring/ui/Screens.kt"
-          )
-
-          s = p.read_text()
-
-          imports = """
-          import androidx.compose.foundation.layout.Column
-          import androidx.compose.foundation.layout.Spacer
-          import androidx.compose.foundation.layout.fillMaxSize
-          import androidx.compose.foundation.layout.fillMaxWidth
-          import androidx.compose.foundation.layout.height
-          import androidx.compose.foundation.layout.padding
-          """
-
-          if "import androidx.compose.foundation.layout.Column" not in s:
               lines = s.splitlines()
-              insert_at = 0
+              pos = 0
 
               for i, line in enumerate(lines):
                   if line.startswith("import "):
-                      insert_at = i + 1
+                      pos = i + 1
 
-              for imp in reversed(imports.strip().splitlines()):
-                  lines.insert(insert_at, imp)
+              lines.insert(
+                  pos,
+                  "import okhttp3.MediaType.Companion.toMediaType"
+              )
 
               s = "\n".join(lines) + "\n"
 
           p.write_text(s)
 
-          print("All Kotlin source repairs completed successfully.")
+          # ==========================================
+          # Screens.kt
+          # ==========================================
+          p = base / "ui" / "Screens.kt"
+          s = p.read_text()
+
+          needed = [
+              "import androidx.compose.foundation.layout.Column",
+              "import androidx.compose.foundation.layout.Row",
+              "import androidx.compose.foundation.layout.Box",
+              "import androidx.compose.foundation.layout.Spacer",
+              "import androidx.compose.foundation.layout.fillMaxSize",
+              "import androidx.compose.foundation.layout.fillMaxWidth",
+              "import androidx.compose.foundation.layout.height",
+              "import androidx.compose.foundation.layout.padding",
+              "import androidx.compose.foundation.layout.size"
+          ]
+
+          lines = s.splitlines()
+
+          existing = set(lines)
+          missing = [x for x in needed if x not in existing]
+
+          if missing:
+              pos = 0
+
+              for i, line in enumerate(lines):
+                  if line.startswith("import "):
+                      pos = i + 1
+
+              for imp in reversed(missing):
+                  lines.insert(pos, imp)
+
+              s = "\n".join(lines) + "\n"
+
+          p.write_text(s)
+
+          print("======================================")
+          print("Kotlin source repair completed")
+          print("MainActivity.kt      : repaired")
+          print("ApiClient.kt         : repaired")
+          print("Screens.kt           : repaired")
+          print("======================================")
           PY
 
       - name: Set up JDK 17
