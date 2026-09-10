@@ -21,36 +21,112 @@ jobs:
           mkdir project
           unzip -q WaterTankMonitoring_build_ready.zip -d project
 
-      - name: Repair Kotlin source
+      - name: Repair Kotlin source files
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          p = Path("project/waterproj/app/src/main/java/com/watertank/monitoring/MainActivity.kt")
+          # -----------------------------
+          # MainActivity.kt
+          # -----------------------------
+          p = Path(
+              "project/waterproj/app/src/main/java/"
+              "com/watertank/monitoring/MainActivity.kt"
+          )
+
           s = p.read_text()
 
-          s = s.replace(
-              'import androidx.compose.foundation.layout.*\n',
-              'import androidx.compose.foundation.layout.*\n'
-              'import androidx.compose.foundation.lazy.LazyColumn\n'
-              'import androidx.compose.foundation.lazy.items\n'
-              'import androidx.compose.foundation.shape.RoundedCornerShape\n'
-          )
+          if "import androidx.compose.foundation.lazy.LazyColumn" not in s:
+              s = s.replace(
+                  "import androidx.compose.foundation.layout.*\n",
+                  "import androidx.compose.foundation.layout.*\n"
+                  "import androidx.compose.foundation.lazy.LazyColumn\n"
+                  "import androidx.compose.foundation.lazy.items\n"
+                  "import androidx.compose.foundation.shape.RoundedCornerShape\n"
+              )
+
+          if "import com.watertank.monitoring.data.Tank" not in s:
+              s = s.replace(
+                  "import com.watertank.monitoring.ui.AddTankScreen\n",
+                  "import com.watertank.monitoring.data.Tank\n"
+                  "import com.watertank.monitoring.data.TankStatus\n"
+                  "import com.watertank.monitoring.ui.AddTankScreen\n"
+              )
 
           s = s.replace(
-              'import com.watertank.monitoring.ui.AddTankScreen\n',
-              'import com.watertank.monitoring.data.Tank\n'
-              'import com.watertank.monitoring.data.TankStatus\n'
-              'import com.watertank.monitoring.ui.AddTankScreen\n'
-          )
-
-          s = s.replace(
-              'Icons.Filled.BatteryCharging50',
-              'Icons.Filled.BatteryFull'
+              "Icons.Filled.BatteryCharging50",
+              "Icons.Filled.BatteryFull"
           )
 
           p.write_text(s)
-          print("MainActivity.kt repaired successfully")
+
+          # -----------------------------
+          # ApiClient.kt
+          # -----------------------------
+          p = Path(
+              "project/waterproj/app/src/main/java/"
+              "com/watertank/monitoring/network/ApiClient.kt"
+          )
+
+          s = p.read_text()
+
+          s = s.replace(
+              'MediaType.parse("application/json")',
+              '"application/json".toMediaType()'
+          )
+
+          if "import okhttp3.MediaType.Companion.toMediaType" not in s:
+              if "import okhttp3." in s:
+                  lines = s.splitlines()
+                  insert_at = 0
+
+                  for i, line in enumerate(lines):
+                      if line.startswith("import "):
+                          insert_at = i + 1
+
+                  lines.insert(
+                      insert_at,
+                      "import okhttp3.MediaType.Companion.toMediaType"
+                  )
+                  s = "\n".join(lines) + "\n"
+
+          p.write_text(s)
+
+          # -----------------------------
+          # Screens.kt
+          # -----------------------------
+          p = Path(
+              "project/waterproj/app/src/main/java/"
+              "com/watertank/monitoring/ui/Screens.kt"
+          )
+
+          s = p.read_text()
+
+          imports = """
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          """
+
+          if "import androidx.compose.foundation.layout.Column" not in s:
+              lines = s.splitlines()
+              insert_at = 0
+
+              for i, line in enumerate(lines):
+                  if line.startswith("import "):
+                      insert_at = i + 1
+
+              for imp in reversed(imports.strip().splitlines()):
+                  lines.insert(insert_at, imp)
+
+              s = "\n".join(lines) + "\n"
+
+          p.write_text(s)
+
+          print("All Kotlin source repairs completed successfully.")
           PY
 
       - name: Set up JDK 17
