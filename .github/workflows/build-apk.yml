@@ -1,25 +1,3 @@
-name: Build WaterTankMonitoring APK
-
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-      - master
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Extract Android project
-        run: |
-          rm -rf project
-          mkdir project
-          unzip -q WaterTankMonitoring_build_ready.zip -d project
 
       - name: Repair Kotlin source files
         run: |
@@ -31,190 +9,36 @@ jobs:
               "com/watertank/monitoring"
           )
 
-          # ==================================================
-          # MainActivity.kt
-          # ==================================================
-          p = base / "MainActivity.kt"
-          s = p.read_text()
-
-          if "import androidx.compose.foundation.lazy.LazyColumn" not in s:
-              s = s.replace(
-                  "import androidx.compose.foundation.layout.*",
-                  """import androidx.compose.foundation.layout.*
-          import androidx.compose.foundation.lazy.LazyColumn
-          import androidx.compose.foundation.lazy.items
-          import androidx.compose.foundation.shape.RoundedCornerShape"""
-              )
-
-          if "import com.watertank.monitoring.data.Tank" not in s:
-              s = s.replace(
-                  "import com.watertank.monitoring.ui.AddTankScreen",
-                  """import com.watertank.monitoring.data.Tank
-          import com.watertank.monitoring.data.TankStatus
-          import com.watertank.monitoring.ui.AddTankScreen"""
-              )
-
-          s = s.replace(
-              "Icons.Filled.BatteryCharging50",
-              "Icons.Filled.BatteryFull"
-          )
-
-          p.write_text(s)
-
-          # ==================================================
-          # ApiClient.kt
-          # ==================================================
-          p = base / "network" / "ApiClient.kt"
-          s = p.read_text()
-
-          # Old OkHttp syntax:
-          # okhttp3.RequestBody.create(
-          #     okhttp3.MediaType.parse("application/json"),
-          #     jsonBody
-          # )
-          #
-          # New syntax:
-          # jsonBody.toRequestBody("application/json".toMediaType())
-
-          s = s.replace(
-              """okhttp3.RequestBody.create(
-                      okhttp3.MediaType.parse("application/json"),
-                      jsonBody
-                  )""",
-              """jsonBody.toRequestBody("application/json".toMediaType())"""
-          )
-
-          # Also handle any remaining old MediaType.parse
-          s = s.replace(
-              'okhttp3.MediaType.parse("application/json")',
-              '"application/json".toMediaType()'
-          )
-
-          # Add required OkHttp imports
-          if "import okhttp3.MediaType.Companion.toMediaType" not in s:
-              s = s.replace(
-                  "import okhttp3.OkHttpClient",
-                  """import okhttp3.MediaType.Companion.toMediaType
-          import okhttp3.OkHttpClient"""
-              )
-
-          if "import okhttp3.RequestBody.Companion.toRequestBody" not in s:
-              s = s.replace(
-                  "import okhttp3.Request",
-                  """import okhttp3.Request
-          import okhttp3.RequestBody.Companion.toRequestBody"""
-              )
-
-          p.write_text(s)
-
-          # ==================================================
-          # Screens.kt
-          # ==================================================
-          p = base / "ui" / "Screens.kt"
-          s = p.read_text()
-
-          needed = [
-              "import androidx.compose.foundation.layout.Column",
-              "import androidx.compose.foundation.layout.Row",
-              "import androidx.compose.foundation.layout.Box",
-              "import androidx.compose.foundation.layout.Spacer",
-              "import androidx.compose.foundation.layout.fillMaxSize",
-              "import androidx.compose.foundation.layout.fillMaxWidth",
-              "import androidx.compose.foundation.layout.height",
-              "import androidx.compose.foundation.layout.padding",
-              "import androidx.compose.foundation.layout.size"
-          ]
-
-          lines = s.splitlines()
-          existing = set(lines)
-
-          missing = [x for x in needed if x not in existing]
-
-          if missing:
-              pos = 0
-
-              for i, line in enumerate(lines):
-                  if line.startswith("import "):
-                      pos = i + 1
-
-              for imp in reversed(missing):
-                  lines.insert(pos, imp)
-
-              s = "\n".join(lines) + "\n"
-
-          p.write_text(s)
-
-          # ==================================================
           # Utils.kt
-          # ==================================================
           p = base / "utils" / "Utils.kt"
           s = p.read_text()
 
-          needed = [
-              "import androidx.compose.material.icons.Icons",
-              "import androidx.compose.material.icons.filled.SignalCellularAlt",
-              "import androidx.compose.material.icons.filled.SignalCellular2Bar",
-              "import androidx.compose.material.icons.filled.SignalCellular1Bar",
-              "import androidx.compose.material.icons.filled.SignalCellularOff",
-              "import androidx.compose.ui.text.AnnotatedString",
-              "import androidx.compose.ui.text.input.OffsetMapping",
-              "import androidx.compose.ui.text.input.TransformedText"
-          ]
+          # Replace unavailable Material icons
+          s = s.replace(
+              "SignalCellular2Bar",
+              "SignalCellularAlt"
+          )
 
+          s = s.replace(
+              "SignalCellular1Bar",
+              "SignalCellularAlt"
+          )
+
+          # Remove duplicate imports if replacement created them
           lines = s.splitlines()
-          existing = set(lines)
+          result = []
+          seen = set()
 
-          missing = [x for x in needed if x not in existing]
+          for line in lines:
+              if line.startswith("import "):
+                  if line in seen:
+                      continue
+                  seen.add(line)
+              result.append(line)
 
-          if missing:
-              pos = 0
-
-              for i, line in enumerate(lines):
-                  if line.startswith("import "):
-                      pos = i + 1
-
-              for imp in reversed(missing):
-                  lines.insert(pos, imp)
-
-              s = "\n".join(lines) + "\n"
+          s = "\n".join(result) + "\n"
 
           p.write_text(s)
 
-          print("========================================")
-          print("ALL KOTLIN REPAIRS COMPLETED")
-          print("MainActivity.kt : OK")
-          print("ApiClient.kt    : OK")
-          print("Screens.kt      : OK")
-          print("Utils.kt        : OK")
-          print("========================================")
+          print("Utils.kt signal icons repaired successfully.")
           PY
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Set up Gradle 8.7
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
-
-      - name: Build Release APK
-        run: |
-          cd "$GITHUB_WORKSPACE/project/waterproj"
-          gradle assembleRelease --stacktrace
-
-      - name: Find APK
-        run: |
-          echo "========================================"
-          echo "APK FILES FOUND:"
-          find project -type f -name "*.apk" -print
-          echo "========================================"
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: WaterTankMonitoring-APK
-          path: project/**/build/outputs/apk/release/*.apk
-          if-no-files-found: error
