@@ -20,7 +20,7 @@ jobs:
         run: |
           rm -rf project
           mkdir project
-          unzip -q WaterTankMonitoring_FIXED.zip -d project
+          unzip -q GWaterTankMon.zip -d project
 
       - name: Show extracted files
         run: |
