@@ -31,9 +31,9 @@ jobs:
               "com/watertank/monitoring"
           )
 
-          # ==============================
+          # ==========================================
           # MainActivity.kt
-          # ==============================
+          # ==========================================
           p = base / "MainActivity.kt"
           s = p.read_text()
 
@@ -61,15 +61,32 @@ jobs:
 
           p.write_text(s)
 
-          # ==============================
+          # ==========================================
           # ApiClient.kt
-          # ==============================
+          # ==========================================
           p = base / "network" / "ApiClient.kt"
           s = p.read_text()
 
+          # Old OkHttp syntax -> modern OkHttp 4 syntax
           s = s.replace(
-              'MediaType.parse("application/json")',
-              '"application/json".toMediaType()'
+              """okhttp3.RequestBody.create(
+                      okhttp3.MediaType.parse("application/json"),
+                      jsonBody
+                  )""",
+              """jsonBody.toRequestBody(
+                      "application/json".toMediaType()
+                  )"""
+          )
+
+          # Safety replacements if formatting differs
+          s = s.replace(
+              """okhttp3.RequestBody.create(
+                          okhttp3.MediaType.parse("application/json"),
+                          jsonBody
+                      )""",
+              """jsonBody.toRequestBody(
+                          "application/json".toMediaType()
+                      )"""
           )
 
           s = s.replace(
@@ -77,17 +94,10 @@ jobs:
               '"application/json".toMediaType()'
           )
 
-          # Old RequestBody.create syntax
-          s = s.replace(
-              "RequestBody.create(",
-              "RequestBody.create("
-          )
-
-          # Add imports
+          # Required imports
           if "import okhttp3.MediaType.Companion.toMediaType" not in s:
               lines = s.splitlines()
               pos = 0
-
               for i, line in enumerate(lines):
                   if line.startswith("import "):
                       pos = i + 1
@@ -101,7 +111,6 @@ jobs:
           if "import okhttp3.RequestBody.Companion.toRequestBody" not in s:
               lines = s.splitlines()
               pos = 0
-
               for i, line in enumerate(lines):
                   if line.startswith("import "):
                       pos = i + 1
@@ -114,9 +123,9 @@ jobs:
 
           p.write_text(s)
 
-          # ==============================
+          # ==========================================
           # Screens.kt
-          # ==============================
+          # ==========================================
           p = base / "ui" / "Screens.kt"
           s = p.read_text()
 
@@ -144,13 +153,13 @@ jobs:
 
           p.write_text("\n".join(lines) + "\n")
 
-          # ==============================
+          # ==========================================
           # Utils.kt
-          # ==============================
+          # ==========================================
           p = base / "utils" / "Utils.kt"
           s = p.read_text()
 
-          # These two icons are not available
+          # Replace unsupported Material icons
           s = s.replace(
               "SignalCellular2Bar",
               "SignalCellularAlt"
@@ -158,6 +167,11 @@ jobs:
 
           s = s.replace(
               "SignalCellular1Bar",
+              "SignalCellularAlt"
+          )
+
+          s = s.replace(
+              "SignalCellularOff",
               "SignalCellularAlt"
           )
 
@@ -188,17 +202,53 @@ jobs:
                   if line in seen:
                       continue
                   seen.add(line)
+
               result.append(line)
 
           p.write_text("\n".join(result) + "\n")
 
-          print("====================================")
-          print("KOTLIN SOURCE REPAIR COMPLETE")
-          print("MainActivity.kt : repaired")
-          print("ApiClient.kt    : repaired")
-          print("Screens.kt      : repaired")
-          print("Utils.kt        : repaired")
-          print("====================================")
+          # ==========================================
+          # FINAL VERIFICATION
+          # ==========================================
+          print("==========================================")
+          print("SOURCE REPAIR VERIFICATION")
+          print("==========================================")
+
+          api = (base / "network" / "ApiClient.kt").read_text()
+          utils = (base / "utils" / "Utils.kt").read_text()
+
+          errors = []
+
+          if "MediaType.parse(" in api:
+              errors.append("MediaType.parse still exists")
+
+          if "RequestBody.create(" in api:
+              errors.append("RequestBody.create still exists")
+
+          if "SignalCellularOff" in utils:
+              errors.append("SignalCellularOff still exists")
+
+          if "SignalCellular2Bar" in utils:
+              errors.append("SignalCellular2Bar still exists")
+
+          if "SignalCellular1Bar" in utils:
+              errors.append("SignalCellular1Bar still exists")
+
+          if errors:
+              print("REPAIR FAILED:")
+              for e in errors:
+                  print(" - " + e)
+              raise SystemExit(1)
+
+          print("ApiClient: OK")
+          print("OkHttp RequestBody syntax: OK")
+          print("OkHttp MediaType syntax: OK")
+          print("Signal icons: OK")
+          print("Compose imports: OK")
+          print("MainActivity imports: OK")
+          print("==========================================")
+          print("ALL SOURCE REPAIRS PASSED")
+          print("==========================================")
           PY
 
       - name: Set up JDK 17
@@ -219,8 +269,10 @@ jobs:
 
       - name: Find APK
         run: |
-          echo "APK FILES:"
+          echo "=========================================="
+          echo "APK FILES FOUND:"
           find project -type f -name "*.apk" -print
+          echo "=========================================="
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -228,4 +280,3 @@ jobs:
           name: WaterTankMonitoring-APK
           path: project/**/build/outputs/apk/release/*.apk
           if-no-files-found: error
-          
