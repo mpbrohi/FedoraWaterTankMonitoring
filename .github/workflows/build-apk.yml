@@ -14,7 +14,7 @@ jobs:
       - name: Check ZIP file
         run: |
           ls -lah
-          test -f WaterTankMonitoring_FIXED.zip
+          test -f GWaterTankMon.zip
 
       - name: Extract project
         run: |
