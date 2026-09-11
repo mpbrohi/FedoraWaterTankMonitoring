@@ -1,5 +1,49 @@
-- name: Extract project
-  run: |
-    rm -rf project
-    mkdir project
-    unzip -q WaterTankMonitoring_FIXED.zip -d project
+name: Build APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check ZIP file
+        run: |
+          ls -lah
+          test -f WaterTankMonitoring_FIXED.zip
+
+      - name: Extract project
+        run: |
+          rm -rf project
+          mkdir project
+          unzip -q WaterTankMonitoring_FIXED.zip -d project
+
+      - name: Show extracted files
+        run: |
+          find project -maxdepth 2 -type f | head -100
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make Gradle executable
+        run: chmod +x project/gradlew
+
+      - name: Build APK
+        working-directory: project
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: WaterTankMonitoring-APK
+          path: project/**/build/outputs/apk/**/*.apk
